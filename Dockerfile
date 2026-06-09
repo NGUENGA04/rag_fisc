@@ -12,4 +12,4 @@ RUN pip install --no-cache-dir --upgrade -r /code/requirements.txt
 COPY . .
 
 # 5. Lancer l'API FastAPI sur le port 7860 (le port imposé par Hugging Face)
-CMD ["uvicorn", "main.py:app", "--host", "0.0.0.0", "--port", "7860"]
+CMD ["uvicorn", "main:app", "--host", "0.0.0.0", "--port", "7860"]
