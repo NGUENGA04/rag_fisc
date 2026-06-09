@@ -19,4 +19,4 @@ jobs:
           HF_TOKEN: ${{ secrets.HF_TOKEN }}
         run: |
           # Remplplace 'jackson' par ton pseudo HF et 'consulfiscal-backend' par le nom de ton Space
-          git push --force https://jackson:$HF_TOKEN@huggingface.co/spaces/jackson/consulfiscal-backend main
+          git push --force https://NGUENGA04:$HF_TOKEN@huggingface.co/spaces/jackson/consulfiscal-backenf main
