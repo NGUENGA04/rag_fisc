@@ -1,0 +1,22 @@
+name: Sync to Hugging Face Spaces
+
+on:
+  push:
+    branches: [ main ]  # Déclenche la synchronisation dès que tu pousses sur la branche principale
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Récupérer le code du dépôt GitHub
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          lfs: true
+
+      - name: Pousser le code vers Hugging Face Spaces
+        env:
+          HF_TOKEN: ${{ secrets.HF_TOKEN }}
+        run: |
+          # Remplplace 'jackson' par ton pseudo HF et 'consulfiscal-backend' par le nom de ton Space
+          git push --force https://jackson:$HF_TOKEN@huggingface.co/spaces/jackson/consulfiscal-backend main
