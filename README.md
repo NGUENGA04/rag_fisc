@@ -2,7 +2,7 @@
 title: ConsulFiscal Backend
 emoji: ⚖️
 colorFrom: blue
-colorTo: gree
+colorTo: green
 sdk: docker
 pinned: false
 ---
