@@ -42,7 +42,7 @@ class MoteurRAG:
         print("⏳ Initialisation du Moteur RAG...")
 
         # 2. Configuration du LLM
-        Settings.llm = Groq(model="llama3-70b-8192", api_key=self.groq_api_key)
+        Settings.llm = Groq(model="llama-3.3-70b-specdec", api_key=self.groq_api_key)
 
         # 3. Configuration des Embeddings (BGE-Small) - Exécution locale dans le conteneur
         Settings.embed_model = HuggingFaceEmbedding(model_name="BAAI/bge-small-en-v1.5")
