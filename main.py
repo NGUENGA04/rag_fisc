@@ -14,8 +14,18 @@ app = FastAPI(
 )
 
 @app.get("/health")
-def health_check():
-    return {"status": "healthy", "moteur": "Llama 3 (70B) via Groq"}
+async def health_check(q: str = "Bonjour"):
+    try:
+        # On teste le moteur RAG directement en asynchrone
+        reponse = await moteur_rag.generer_reponse_async(q)
+        return {
+            "status": "healthy",
+            "moteur": "Llama 3.1 via Groq",
+            "test_question": q,
+            "test_reponse": reponse
+        }
+    except Exception as e:
+        return {"status": "error", "details": str(e)}
 
 @app.post("/webhook/whatsapp")
 async def whatsapp_webhook(Body: str = Form(""), From: str = Form("")):
