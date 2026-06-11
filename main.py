@@ -12,7 +12,6 @@ app = FastAPI(
     title="ConsuFiscal API",
     description="Backend RAG pour l'analyse du Code des Impôts via WhatsApp",
     version="1.0.0"
-    
 )
 
 @app.get("/health")
