@@ -1,11 +1,25 @@
 import os
-import nest_asyncio
-from fastapi import FastAPI, Form, Response
-from fastapi.responses import Response
-from dotenv import load_dotenv
+import sys
+import asyncio
 
-# Appliquer nest_asyncio au tout début pour autoriser les boucles imbriquées (LlamaIndex dans FastAPI)
+# --- REPRISE EN MAIN DE LA BOUCLE D'ÉVÉNEMENTS (FIX UVLOOP / NEST_ASYNCIO) ---
+# 1. On intercepte et supprime uvloop s'il a été pré-chargé par l'environnement
+if "uvloop" in sys.modules:
+    del sys.modules["uvloop"]
+
+# 2. On force l'utilisation de la politique de boucle standard d'asyncio
+try:
+    asyncio.set_event_loop_policy(asyncio.DefaultEventLoopPolicy())
+except Exception:
+    pass
+
+# 3. Maintenant on peut appliquer nest_asyncio en toute sécurité
+import nest_asyncio
 nest_asyncio.apply()
+# ----------------------------------------------------------------------------
+
+from fastapi import FastAPI, Form, Response
+from dotenv import load_dotenv
 
 # Importation du moteur RAG configuré
 from moteur_rag import moteur_rag
@@ -33,7 +47,7 @@ async def whatsapp_webhook(Body: str = Form(""), From: str = Form("")):
     # 2. Génération de la réponse via le moteur RAG
     if message_utilisateur:
         try:
-            # nest_asyncio permet à cet appel de s'exécuter sans bloquer ou crasher
+            # nest_asyncio permet à cet appel synchrone de s'exécuter sur la boucle asyncio standard
             reponse_fiscale = moteur_rag.generer_reponse(message_utilisateur)
         except Exception as e:
             reponse_fiscale = "⚠️ Une erreur technique est survenue lors de l'analyse fiscale."
