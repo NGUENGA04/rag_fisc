@@ -1,34 +1,55 @@
-from fastapi import FastAPI, Form
+import os
+from fastapi import FastAPI, Request
 from fastapi.responses import Response
-from moteur_rag import interroger_le_moteur
+from dotenv import load_dotenv
 
-app = FastAPI(title="ConsulFiscal Backend WhatsApp API")
+# Importation du moteur RAG configuré
+from moteur_rag import moteur_rag
+
+load_dotenv()
+
+app = FastAPI(
+    title="ConsuFiscal API",
+    description="Backend RAG pour l'analyse du Code des Impôts via WhatsApp",
+    version="1.0.0"
+)
+
+@app.get("/health")
+def health_check():
+    return {"status": "healthy", "moteur": "Llama 3 (70B) via Groq"}
 
 @app.post("/webhook/whatsapp")
-async def webhook_whatsapp(From: str = Form(...), Body: str = Form(...)):
-    question_comptable = Body
-    print(f"📩 Message reçu de {From} : {question_comptable}")
+async def whatsapp_webhook(request: Request):
+    # 1. Extraction des données du formulaire Twilio
+    form_data = await request.form()
+    message_utilisateur = form_data.get("Body", "").strip()
+    numero_expediteur = form_data.get("From", "")
     
-    # 1. Exécution de la recherche sémantique RAG
-    resultat = interroger_le_moteur(question_comptable)
-    texte_ia = resultat["reponse"]
-    dictionnaire_sources = resultat["sources"]
+    print(f"📩 Message reçu de {numero_expediteur} : '{message_utilisateur}'")
     
-    # 2. Construction du message final au format WhatsApp (Gras avec *, italique avec _)
-    message_whatsapp = f"🤖 *ConsulFiscal Pro*\n\n{texte_ia}\n\n"
-    
-    # 3. Concatenation propre des sources en bas du bloc de texte
-    if dictionnaire_sources:
-        message_whatsapp += "📋 *Sources officielles consultées :*\n"
-        for index, (nom_doc, url_doc) in enumerate(dictionnaire_sources.items(), 1):
-            message_whatsapp += f"{index}. 📄 _{nom_doc}_ : {url_doc}\n"
-            
-    # 4. Génération de la réponse XML pour Twilio
+    # 2. Génération de la réponse via le moteur RAG
+    if message_utilisateur:
+        try:
+            # On suppose ici que ton moteur renvoie la réponse formatée.
+            # Si ton moteur renvoie un dictionnaire avec les sources, adapte cette ligne.
+            reponse_fiscale = moteur_rag.generer_reponse(message_utilisateur)
+        except Exception as e:
+            reponse_fiscale = f"⚠️ Une erreur technique est survenue lors de l'analyse fiscale."
+            print(f"Erreur moteur RAG : {str(e)}")
+    else:
+        reponse_fiscale = "Désolé, je n'ai pas pu lire le contenu de votre message."
+
+    # 3. Formatage de la réponse pour WhatsApp (Gras avec *)
+    entete = "🤖 *ConsulFiscal Pro*\n\n"
+    message_final = f"{entete}{reponse_fiscale}"
+
+    # 4. Préparation du TwiML XML strict avec la balise <Body>
     twiml_response = (
         f'<?xml version="1.0" encoding="UTF-8"?>'
         f'<Response>'
-        f'<Message><Body>{message_whatsapp}</Body></Message>'
+        f'<Message><Body>{message_final}</Body></Message>'
         f'</Response>'
     )
     
+    # 5. Renvoi avec le media_type text/xml attendu par Twilio
     return Response(content=twiml_response, media_type="text/xml")
