@@ -66,7 +66,10 @@ class MoteurRAG:
         print("✅ Moteur RAG prêt à recevoir des requêtes !")
 
     def _enrichir_question(self, question: str) -> str:
-        """Nettoie la ponctuation et applique l'expansion d'acronymes bilingues de manière robuste."""
+        """
+        Nettoie la requête et applique une expansion d'acronymes agressive.
+        Supprime l'acronyme court pour éviter de parasiter l'embedding anglais.
+        """
         acronymes = {
             # Acronymes Français
             "is": "impôt sur les sociétés",
@@ -76,27 +79,33 @@ class MoteurRAG:
             "cgi": "code général des impôts",
             "lfi": "loi de finances",
             
-            # Acronymes Anglais (Traduits pour correspondre sémantiquement à la base FR)
-            "cit": "impôt sur les sociétés corporate income tax",
-            "vat": "taxe sur la valeur ajoutée value added tax"
+            # Acronymes Anglais
+            "cit": "impôt sur les sociétés",
+            "vat": "taxe sur la valeur ajoutée"
         }
         
-        # Nettoyage agressif des apostrophes et ponctuations pour isoler les acronymes (ex: "l'is" -> "l is")
+        # 1. Nettoyage et isolation des mots (Gestion des apostrophes courantes)
         question_nettoyee = question.lower()
         for char in ["'", "’", "?", "!", ".", ",", ";", ":", "(", ")"]:
             question_nettoyee = question_nettoyee.replace(char, " ")
             
         mots_question = question_nettoyee.split()
-        enrichissements = []
+        acronyme_trouve = False
         
-        for acronyme, texte_complet in acronymes.items():
-            if acronyme in mots_question:
-                enrichissements.append(texte_complet)
+        # 2. Remplacement mot par mot pour éviter les faux positifs 
+        # (ex: "un" ne doit pas matcher s'il y a "is" quelque part)
+        mots_finaux = []
+        for mot in mots_question:
+            if mot in acronymes:
+                mots_finaux.append(acronymes[mot])
+                acronyme_trouve = True
+            else:
+                mots_finaux.append(mot)
                 
-        if enrichissements:
-            extension = " , ".join(enrichissements)
-            question_enrichie = f"{question.strip()} ({extension})"
-            print(f"🔍 Requête enrichie transmise à Pinecone : {question_enrichie}")
+        # 3. Reconstruction de la requête propre
+        if acronyme_trouve:
+            question_enrichie = " ".join(mots_finaux).strip()
+            print(f"🎯 Requête corrigée et nettoyée pour Pinecone : {question_enrichie}")
             return question_enrichie
             
         return question
@@ -126,11 +135,11 @@ class MoteurRAG:
     async def generer_reponse_async(self, question: str) -> str:
         """Interroge l'index de manière ASYNCHRONE pour FastAPI avec expansion des acronymes."""
         try:
-            # Application du filtre d'acronymes
-            question = self._enrichir_question(question)
+            # Application du filtre d'acronymes nettoyé
+            question_traitee = self._enrichir_question(question)
 
             # .aquery() est la méthode native asynchrone de LlamaIndex
-            response = await self.query_engine.aquery(question)
+            response = await self.query_engine.aquery(question_traitee)
             return self._formater_reponse_avec_sources(response)
             
         except Exception as e:
@@ -143,10 +152,10 @@ class MoteurRAG:
     def generer_reponse(self, question: str) -> str:
         """Interroge l'index de manière synchrone (Enrichi aussi pour le fallback synchrone)."""
         try:
-            # Application du filtre d'acronymes
-            question = self._enrichir_question(question)
+            # Application du filtre d'acronymes nettoyé
+            question_traitee = self._enrichir_question(question)
 
-            response = self.query_engine.query(question)
+            response = self.query_engine.query(question_traitee)
             return self._formater_reponse_avec_sources(response)
             
         except Exception as e:
