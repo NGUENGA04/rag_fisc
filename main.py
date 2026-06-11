@@ -1,7 +1,11 @@
 import os
-from fastapi import FastAPI, Request
+import nest_asyncio
+from fastapi import FastAPI, Form, Response
 from fastapi.responses import Response
 from dotenv import load_dotenv
+
+# Appliquer nest_asyncio au tout début pour autoriser les boucles imbriquées (LlamaIndex dans FastAPI)
+nest_asyncio.apply()
 
 # Importation du moteur RAG configuré
 from moteur_rag import moteur_rag
@@ -19,23 +23,21 @@ def health_check():
     return {"status": "healthy", "moteur": "Llama 3 (70B) via Groq"}
 
 @app.post("/webhook/whatsapp")
-async def whatsapp_webhook(request: Request):
-    # 1. Extraction des données du formulaire Twilio
-    form_data = await request.form()
-    message_utilisateur = form_data.get("Body", "").strip()
-    numero_expediteur = form_data.get("From", "")
+async def whatsapp_webhook(Body: str = Form(""), From: str = Form("")):
+    # 1. Extraction directe et propre des données du formulaire Twilio grâce au typage Form
+    message_utilisateur = Body.strip()
+    numero_expediteur = From
     
     print(f"📩 Message reçu de {numero_expediteur} : '{message_utilisateur}'")
     
     # 2. Génération de la réponse via le moteur RAG
     if message_utilisateur:
         try:
-            # On suppose ici que ton moteur renvoie la réponse formatée.
-            # Si ton moteur renvoie un dictionnaire avec les sources, adapte cette ligne.
+            # nest_asyncio permet à cet appel de s'exécuter sans bloquer ou crasher
             reponse_fiscale = moteur_rag.generer_reponse(message_utilisateur)
         except Exception as e:
-            reponse_fiscale = f"⚠️ Une erreur technique est survenue lors de l'analyse fiscale."
-            print(f"Erreur moteur RAG : {str(e)}")
+            reponse_fiscale = "⚠️ Une erreur technique est survenue lors de l'analyse fiscale."
+            print(f"❌ Erreur lors du traitement de la requête RAG : {str(e)}")
     else:
         reponse_fiscale = "Désolé, je n'ai pas pu lire le contenu de votre message."
 
