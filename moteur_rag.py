@@ -3,8 +3,8 @@ from dotenv import load_dotenv
 from pinecone import Pinecone
 from llama_index.core import Settings, VectorStoreIndex, PromptTemplate
 from llama_index.llms.groq import Groq
-from llama_index.embeddings.huggingface_api import HuggingFaceInferenceAPIEmbedding
 from llama_index.vector_stores.pinecone import PineconeVectorStore
+from llama_index.embeddings.huggingface import HuggingFaceEmbedding
 
 
 # 1. Chargement des variables d'environnement
@@ -46,7 +46,7 @@ class MoteurRAG:
         Settings.llm = Groq(model="llama3-70b-8192", api_key=self.groq_api_key)
 
         # 3. Configuration des Embeddings (BGE-Small) 
-        Settings.embed_model = HuggingFaceInferenceAPIEmbedding(model_name="BAAI/bge-small-en-v1.5")
+        Settings.embed_model = HuggingFaceEmbedding(model_name="BAAI/bge-small-en-v1.5")
 
         # 4. Connexion à Pinecone
         self.pc = Pinecone(api_key=self.pinecone_api_key)
