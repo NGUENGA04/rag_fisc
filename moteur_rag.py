@@ -58,9 +58,9 @@ class MoteurRAG:
         # 6. Configuration du prompt mis à jour
         text_qa_template = PromptTemplate(SISTEM_PROMPT_TEMPLATE)
         
-        # 7. Création du moteur de requêtage avec intégration du Prompt
+        # 7. Création du moteur de requêtage avec intégration du Prompt (top_k calé à 7)
         self.query_engine = self.index.as_query_engine(
-            similarity_top_k=6,
+            similarity_top_k=7,
             text_qa_template=text_qa_template
         )
         print("✅ Moteur RAG prêt à recevoir des requêtes !")
@@ -88,8 +88,33 @@ class MoteurRAG:
         return reponse_finale
 
     async def generer_reponse_async(self, question: str) -> str:
-        """Interroge l'index de manière ASYNCHRONE pour FastAPI (Évite le blocage uvloop)."""
+        """Interroge l'index de manière ASYNCHRONE pour FastAPI avec expansion des acronymes."""
         try:
+            # Dictionnaire des acronymes fiscaux clés pour le Cameroun
+            acronymes = {
+                "is": "impôt sur les sociétés",
+                "tva": "taxe sur la valeur ajoutée",
+                "irpp": "impôt sur le revenu des personnes physiques",
+                "cac": "centimes additionnels communaux",
+                "cgi": "code général des impôts",
+                "lfi": "loi de finances"
+            }
+            
+            # Détection et enrichissement de la requête
+            question_lower = question.lower()
+            enrichissements = []
+            
+            for acronyme, texte_complet in acronymes.items():
+                # On s'assure de matcher l'acronyme comme un mot isolé pour éviter les faux positifs
+                if acronyme in question_lower:
+                    enrichissements.append(texte_complet)
+            
+            if enrichissements:
+                # On ajoute les termes complets à la fin de la question originale
+                extension = " , ".join(enrichissements)
+                question = f"{question} ({extension})"
+                print(f"🔍 Requête enrichie transmise à Pinecone : {question}")
+
             # .aquery() est la méthode native asynchrone de LlamaIndex
             response = await self.query_engine.aquery(question)
             return self._formater_reponse_avec_sources(response)
@@ -102,8 +127,27 @@ class MoteurRAG:
             )
 
     def generer_reponse(self, question: str) -> str:
-        """Interroge l'index de manière synchrone."""
+        """Interroge l'index de manière synchrone (Enrichi aussi pour le fallback synchrone)."""
         try:
+            acronymes = {
+                "is": "impôt sur les sociétés",
+                "tva": "taxe sur la valeur ajoutée",
+                "irpp": "impôt sur le revenu des personnes physiques",
+                "cac": "centimes additionnels communaux",
+                "cgi": "code général des impôts",
+                "lfi": "loi de finances"
+            }
+            
+            question_lower = question.lower()
+            enrichissements = []
+            for acronyme, texte_complet in acronymes.items():
+                if acronyme in question_lower:
+                    enrichissements.append(texte_complet)
+            
+            if enrichissements:
+                extension = " , ".join(enrichissements)
+                question = f"{question} ({extension})"
+
             response = self.query_engine.query(question)
             return self._formater_reponse_avec_sources(response)
             
