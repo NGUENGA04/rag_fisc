@@ -60,7 +60,7 @@ class MoteurRAG:
         
         # 7. Création du moteur de requêtage avec intégration du Prompt
         self.query_engine = self.index.as_query_engine(
-            similarity_top_k=3,
+            similarity_top_k=6,
             text_qa_template=text_qa_template
         )
         print("✅ Moteur RAG prêt à recevoir des requêtes !")
