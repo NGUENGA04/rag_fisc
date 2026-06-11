@@ -45,7 +45,7 @@ class MoteurRAG:
         # 2. Configuration du LLM
         Settings.llm = Groq(model="llama3-70b-8192", api_key=self.groq_api_key)
 
-        # 3. Configuration des Embeddings (BGE-Small)
+        # 3. Configuration des Embeddings (BGE-Small) 
         Settings.embed_model = HuggingFaceInferenceAPIEmbedding(model_name="BAAI/bge-small-en-v1.5")
 
         # 4. Connexion à Pinecone
