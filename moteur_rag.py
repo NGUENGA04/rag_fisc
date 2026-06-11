@@ -6,7 +6,6 @@ from llama_index.llms.groq import Groq
 from llama_index.vector_stores.pinecone import PineconeVectorStore
 from llama_index.embeddings.huggingface import HuggingFaceEmbedding
 
-
 # 1. Chargement des variables d'environnement
 load_dotenv()
 
@@ -45,7 +44,7 @@ class MoteurRAG:
         # 2. Configuration du LLM
         Settings.llm = Groq(model="llama3-70b-8192", api_key=self.groq_api_key)
 
-        # 3. Configuration des Embeddings (BGE-Small) 
+        # 3. Configuration des Embeddings (BGE-Small) - Exécution locale dans le conteneur
         Settings.embed_model = HuggingFaceEmbedding(model_name="BAAI/bge-small-en-v1.5")
 
         # 4. Connexion à Pinecone
@@ -66,37 +65,50 @@ class MoteurRAG:
         )
         print("✅ Moteur RAG prêt à recevoir des requêtes !")
 
-    def generer_reponse(self, question: str) -> str:
-        """Interroge l'index et renvoie le texte combiné aux sources."""
+    def _formater_reponse_avec_sources(self, response) -> str:
+        """Méthode utilitaire partagée pour extraire les sources et structurer la réponse."""
+        texte_ia = str(response)
+        sources_utilisees = set()
+        
+        if hasattr(response, "source_nodes"):
+            for node in response.source_nodes:
+                nom_doc = node.node.metadata.get("source_nom", "Source inconnue")
+                num_page = node.node.metadata.get("page_numero", "")
+                if num_page:
+                    sources_utilisees.add(f"{nom_doc} (Page {num_page})")
+                else:
+                    sources_utilisees.add(nom_doc)
+        
+        reponse_finale = texte_ia
+        if sources_utilisees:
+            reponse_finale += "\n\n📋 *Sources consultées :*\n"
+            for src in sources_utilisees:
+                reponse_finale += f"- _{src}_\n"
+        
+        return reponse_finale
+
+    async def generer_reponse_async(self, question: str) -> str:
+        """Interroge l'index de manière ASYNCHRONE pour FastAPI (Évite le blocage uvloop)."""
         try:
-            # On passe uniquement la question brute de l'utilisateur !
-            response = self.query_engine.query(question)
-            
-            texte_ia = str(response)
-            
-            # --- CODE BONUS POUR TOI : Extraction dynamique des sources pour ta soutenance ---
-            sources_utilisees = set()
-            if hasattr(response, "source_nodes"):
-                for node in response.source_nodes:
-                    # On va chercher les métadonnées que tu as injectées dans indexer.py
-                    nom_doc = node.node.metadata.get("source_nom", "Source inconnue")
-                    num_page = node.node.metadata.get("page_numero", "")
-                    if num_page:
-                        sources_utilisees.add(f"{nom_doc} (Page {num_page})")
-                    else:
-                        sources_utilisees.add(nom_doc)
-            
-            # Reconstruction d'un message WhatsApp propre
-            reponse_finale = texte_ia
-            if sources_utilisees:
-                reponse_finale += "\n\n📋 *Sources consultées :*\n"
-                for src in sources_utilisees:
-                    reponse_finale += f"- _{src}_\n"
-            
-            return reponse_finale
+            # .aquery() est la méthode native asynchrone de LlamaIndex
+            response = await self.query_engine.aquery(question)
+            return self._formater_reponse_avec_sources(response)
             
         except Exception as e:
-            print(f"❌ Erreur lors du traitement de la requête RAG : {str(e)}")
+            print(f"❌ Erreur lors du traitement asynchrone de la requête RAG : {str(e)}")
+            return (
+                "Désolé, je rencontre actuellement une difficulté technique pour analyser "
+                "le Code Général des Impôts. Veuillez réessayer dans quelques instants."
+            )
+
+    def generer_reponse(self, question: str) -> str:
+        """Interroge l'index de manière synchrone."""
+        try:
+            response = self.query_engine.query(question)
+            return self._formater_reponse_avec_sources(response)
+            
+        except Exception as e:
+            print(f"❌ Erreur lors du traitement synchrone de la requête RAG : {str(e)}")
             return (
                 "Désolé, je rencontre actuellement une difficulté technique pour analyser "
                 "le Code Général des Impôts. Veuillez réessayer dans quelques instants."
