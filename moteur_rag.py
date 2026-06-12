@@ -63,7 +63,7 @@ class MoteurRAG:
         # 7. Création du moteur de requêtage (top_k optimisé)
         # Note : similarity_top_k=4 réduit la charge de tokens tout en gardant le contexte nécessaire
         self.query_engine = self.index.as_query_engine(
-            similarity_top_k=4,
+            similarity_top_k=8,
             text_qa_template=self.text_qa_template
         )
         print("✅ Moteur RAG prêt à recevoir des requêtes !")
