@@ -18,7 +18,7 @@ ID_INSTANCE = os.getenv("GREEN_API_ID_INSTANCE")
 API_TOKEN = os.getenv("GREEN_API_TOKEN")
 
 # Ton numéro fixe pour centraliser tes tests (si besoin)
-MON_NUMERO_WHATSAPP = "237692001642"
+MON_NUMERO_WHATSAPP = "237676324031"
 
 app = FastAPI(
     title="ConsuFiscal API",
