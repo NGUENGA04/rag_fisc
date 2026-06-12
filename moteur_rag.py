@@ -67,24 +67,23 @@ class MoteurRAG:
 
     def _enrichir_question(self, question: str) -> str:
         """
-        Nettoie la requête et applique une expansion d'acronymes agressive.
-        Supprime l'acronyme court pour éviter de parasiter l'embedding anglais.
+        Nettoie la requête et applique une expansion d'acronymes hybride et sémantique.
+        Garde l'acronyme ET injecte la version textuelle longue avec mots-clés de ciblage 
+        pour maximiser le score de similarité sur les articles de taux courts.
         """
+        # Mapping conceptuel lourd associant acronyme + forme longue + expressions cibles du CGI
         acronymes = {
-            # Acronymes Français
-            "is": "impôt sur les sociétés",
-            "tva": "taxe sur la valeur ajoutée",
-            "irpp": "impôt sur le revenu des personnes physiques",
-            "cac": "centimes additionnels communaux",
-            "cgi": "code général des impôts",
-            "lfi": "loi de finances",
-            
-            # Acronymes Anglais
-            "cit": "impôt sur les sociétés",
-            "vat": "taxe sur la valeur ajoutée"
+            "is": "is impôt sur les sociétés taux applicable fixé à",
+            "tva": "tva taxe sur la valeur ajoutée taux général fixé à",
+            "irpp": "irpp impôt sur le revenu des personnes physiques barème",
+            "cac": "cac centimes additionnels communaux communes",
+            "cgi": "cgi code général des impôts",
+            "lfi": "lfi loi de finances",
+            "cit": "cit impôt sur les sociétés corporate income tax",
+            "vat": "vat taxe sur la valeur ajoutée value added tax"
         }
         
-        # 1. Nettoyage et isolation des mots (Gestion des apostrophes courantes)
+        # 1. Nettoyage et isolation des mots (Gestion des apostrophes et ponctuations)
         question_nettoyee = question.lower()
         for char in ["'", "’", "?", "!", ".", ",", ";", ":", "(", ")"]:
             question_nettoyee = question_nettoyee.replace(char, " ")
@@ -92,8 +91,7 @@ class MoteurRAG:
         mots_question = question_nettoyee.split()
         acronyme_trouve = False
         
-        # 2. Remplacement mot par mot pour éviter les faux positifs 
-        # (ex: "un" ne doit pas matcher s'il y a "is" quelque part)
+        # 2. Remplacement et injection sémantique mot par mot
         mots_finaux = []
         for mot in mots_question:
             if mot in acronymes:
@@ -102,10 +100,10 @@ class MoteurRAG:
             else:
                 mots_finaux.append(mot)
                 
-        # 3. Reconstruction de la requête propre
+        # 3. Reconstruction de la requête optimisée
         if acronyme_trouve:
             question_enrichie = " ".join(mots_finaux).strip()
-            print(f"🎯 Requête corrigée et nettoyée pour Pinecone : {question_enrichie}")
+            print(f"🎯 Requête sémantiquement optimisée pour Pinecone : {question_enrichie}")
             return question_enrichie
             
         return question
@@ -135,7 +133,7 @@ class MoteurRAG:
     async def generer_reponse_async(self, question: str) -> str:
         """Interroge l'index de manière ASYNCHRONE pour FastAPI avec expansion des acronymes."""
         try:
-            # Application du filtre d'acronymes nettoyé
+            # Application du filtre d'acronymes optimisé
             question_traitee = self._enrichir_question(question)
 
             # .aquery() est la méthode native asynchrone de LlamaIndex
@@ -152,7 +150,7 @@ class MoteurRAG:
     def generer_reponse(self, question: str) -> str:
         """Interroge l'index de manière synchrone (Enrichi aussi pour le fallback synchrone)."""
         try:
-            # Application du filtre d'acronymes nettoyé
+            # Application du filtre d'acronymes optimisé
             question_traitee = self._enrichir_question(question)
 
             response = self.query_engine.query(question_traitee)
