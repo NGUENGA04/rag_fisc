@@ -1,18 +1,20 @@
 import os
 import httpx
-from fastapi import FastAPI, Request, Response, BackgroundTasks, Query
+from fastapi import FastAPI, Request, Response, BackgroundTasks
 from dotenv import load_dotenv
 
 load_dotenv()
 
-# Variables Meta Cloud API
+# Configuration des secrets Meta (récupérés depuis tes variables Hugging Face)
 META_ACCESS_TOKEN = os.getenv("META_ACCESS_TOKEN")
 PHONE_NUMBER_ID = os.getenv("PHONE_NUMBER_ID")
-VERIFY_TOKEN = os.getenv("META_VERIFY_TOKEN")  # Un mot de passe arbitraire que tu choisis (ex: "MonSecret123")
+VERIFY_TOKEN = os.getenv("META_VERIFY_TOKEN", "123456")
 
-app = FastAPI(title="ConsuFiscal Meta API")
+app = FastAPI(title="ConsulFiscal Pro - Meta API")
 
+# --- 1. FONCTION D'ENVOI VERS META ---
 async def envoyer_message_whatsapp_meta(numero_destinataire: str, texte: str):
+    """Envoie la réponse finale sur le WhatsApp de l'utilisateur."""
     url = f"https://graph.facebook.com/v17.0/{PHONE_NUMBER_ID}/messages"
     
     headers = {
@@ -30,55 +32,79 @@ async def envoyer_message_whatsapp_meta(numero_destinataire: str, texte: str):
     async with httpx.AsyncClient() as client:
         try:
             response = await client.post(url, json=payload, headers=headers, timeout=10.0)
-            # CE PRINT VA TOUT TE DIRE DANS LES LOGS HUGGING FACE :
             print(f"📊 RETOUR API META (Status: {response.status_code}) : {response.text}")
         except Exception as e:
-            print(f"❌ Erreur réseau critique lors de l'envoi : {str(e)}")
+            print(f"❌ Erreur réseau lors de l'envoi : {str(e)}")
 
-# 1. ÉTAPE DE VÉRIFICATION DU WEBHOOK (Exigée par Meta lors de la configuration)
+
+# --- 2. FONCTION DU PIPELINE RAG (Définie avant son utilisation) ---
+async def executer_pipeline_rag(message_utilisateur: str, numero_expediteur: str):
+    """Exécute la recherche fiscale et envoie la réponse."""
+    print(f"🧠 Lancement du RAG pour le message : '{message_utilisateur}'")
+    
+    try:
+        # --- ICI : METS TON CODE APPEL RAG EXISTANT ---
+        # Exemple de simulation en attendant d'exécuter ton vrai script :
+        # reponse_fiscale = "Le taux standard de la TVA au Cameroun est de 19,25% (17,5% principal + 10% CAC)."
+        
+        # Si tu as importé ton vrai moteur RAG (ex: query_engine), décommente et ajuste la ligne ci-dessous :
+        # response = query_engine.query(message_utilisateur)
+        # reponse_fiscale = str(response)
+        
+        reponse_fiscale = f"Merci pour votre question : '{message_utilisateur}'. Le moteur RAG est en cours de traitement."
+        
+    except Exception as e:
+        reponse_fiscale = "⚠️ Une erreur technique est survenue dans le traitement fiscal."
+        print(f"❌ Erreur moteur RAG : {str(e)}")
+
+    # Formatage de la réponse pour WhatsApp
+    message_final = f"🤖 *ConsulFiscal Pro*\n\n{reponse_fiscale}"
+    
+    # Envoi de la réponse sur le téléphone
+    await envoyer_message_whatsapp_meta(numero_expediteur, message_final)
+
+
+# --- 3. ROUTE DE VALIDATION GET (La poignée de main) ---
 @app.get("/webhook/whatsapp")
 async def verifier_webhook(request: Request):
-    # On récupère directement les paramètres bruts de l'URL
     params = request.query_params
-    
     hub_mode = params.get("hub.mode")
     hub_challenge = params.get("hub.challenge")
     hub_verify_token = params.get("hub.verify_token")
     
-    # Sécurité : On affiche dans tes logs Hugging Face ce que ton code reçoit VRAIMENT
-    print(f"🔍 Mode reçu: {hub_mode} | Token reçu: {hub_verify_token} | Challenge: {hub_challenge}")
-    
-    # REMPLACE "123456" par ton vrai token secret si tu l'as changé dans l'interface de Meta
-    # Ici, d'après tes logs, Meta envoie "123456"
-    VERIFY_TOKEN_ATTENDU = "123456" 
-    
-    if hub_mode == "subscribe" and hub_verify_token == VERIFY_TOKEN_ATTENDU:
-        print("✅ Jeton validé ! Envoi du challenge à Meta...")
+    if hub_mode == "subscribe" and hub_verify_token == VERIFY_TOKEN:
         return Response(content=str(hub_challenge), media_type="text/plain")
-    
-    print("❌ Échec de la validation : les jetons ne correspondent pas.")
     return Response(content="Échec de la vérification", status_code=403)
 
-# 2. RÉCEPTION DES MESSAGES DE META
-@app.post("/webhook/whatsapp")
-async def recevoir_message_meta(request: Request, background_tasks: BackgroundTasks):
-    body = await request.json()
-    
-    try:
-        # Structure d'extraction du JSON très spécifique à Meta
-        entry = body["entry"][0]
-        changes = entry["changes"][0]
-        value = changes["value"]
-        message = value["messages"][0]
-        
-        message_utilisateur = message["text"]["body"].strip()
-        numero_expediteur = message["from"]  # Format international complet (ex: 237692001642)
 
-        # Ici tu lances ton traitement RAG habituel en tâche de fond
-        # ex: background_tasks.add_task(traiter_rag_et_repondre, message_utilisateur, numero_expediteur)
-        print(f"📩 Message reçu de {numero_expediteur} : {message_utilisateur}")
+# --- 4. ROUTE DE RÉCEPTION POST ---
+@app.post("/webhook/whatsapp")
+async def recevoir_message_whatsapp(request: Request, background_tasks: BackgroundTasks):
+    try:
+        body = await request.json()
         
-    except (KeyError, IndexError):
-        pass
+        # Extraction sécurisée des données du dictionnaire Meta
+        entry = body.get("entry", [{}])[0]
+        changes = entry.get("changes", [{}])[0]
+        value = changes.get("value", {})
+        
+        if "messages" in value:
+            message_data = value["messages"][0]
+            message_utilisateur = message_data.get("text", {}).get("body", "").strip()
+            numero_expediteur = message_data.get("from")
+            
+            print(f"📩 Message intercepté de {numero_expediteur} : '{message_utilisateur}'")
+            
+            if message_utilisateur and numero_expediteur:
+                # Ajout de la tâche de fond (Python connaît maintenant la fonction !)
+                background_tasks.add_task(executer_pipeline_rag, message_utilisateur, numero_expediteur)
+                print("⏳ Tâche de fond ajoutée au pipeline RAG.")
+                
+        else:
+            # Ignore les statuts "sent", "delivered", "read" envoyés par Meta
+            pass
+            
+    except Exception as e:
+        print(f"❌ Erreur lors du traitement du webhook : {str(e)}")
 
     return Response(status_code=200)
