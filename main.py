@@ -20,9 +20,6 @@ print(f"   - META_VERIFY_TOKEN : {VERIFY_TOKEN}")
 
 # --- 1. FONCTION D'ENVOI OPTIMISÉE ---
 async def envoyer_message_whatsapp_meta(numero_destinataire: str, texte: str):
-    """Envoie la réponse finale sur le WhatsApp de l'utilisateur."""
-    
-    # Sécurité : Si les variables sont absentes, on bloque avant le crash réseau
     if not PHONE_NUMBER_ID or not META_ACCESS_TOKEN:
         print("❌ Envoi annulé : PHONE_NUMBER_ID ou META_ACCESS_TOKEN est vide.")
         return
@@ -41,39 +38,23 @@ async def envoyer_message_whatsapp_meta(numero_destinataire: str, texte: str):
         "text": {"body": texte}
     }
     
-    print(f"📡 Connexion à l'API Meta pour l'envoi vers {numero_destinataire}...")
+    print(f"📡 Tentative d'envoi à Meta (Timeout étendu à 30s)... URL: {url}")
     
-    async with httpx.AsyncClient() as client:
+    # Configuration d'un client HTTP limits et timeout renforcés
+    limits = httpx.Limits(max_keepalive_connections=5, max_connections=10)
+    async with httpx.AsyncClient(limits=limits, trust_env=True) as client:
         try:
-            response = await client.post(url, json=payload, headers=headers, timeout=15.0)
+            response = await client.post(
+                url, 
+                json=payload, 
+                headers=headers, 
+                timeout=30.0  # On passe à 30 secondes pour laisser le temps au proxy HF
+            )
             print(f"📊 RETOUR API META (Status: {response.status_code}) : {response.text}")
+        except httpx.ConnectTimeout:
+            print("❌ Erreur : Temps de connexion dépassé (ConnectTimeout). Hugging Face bloque la sortie vers Meta.")
         except Exception as e:
-            # Affiche la cause exacte (ex: Timeout, DNS, ConnectError)
-            print(f"❌ Erreur réseau de type {type(e).__name__} : {repr(e)}")
-
-
-# --- 2. PIPELINE RAG ---
-async def executer_pipeline_rag(message_utilisateur: str, numero_expediteur: str):
-    """Exécute la recherche fiscale et délègue l'envoi."""
-    print(f"🧠 Lancement du traitement RAG pour : '{message_utilisateur}'")
-    
-    try:
-        # --- BLOC DE SIMULATION DU MOTEUR RAG ---
-        # Remplace cette ligne par ton appel réel (ex: query_engine.query) quand tu liras tes fichiers de lois.
-        if "tva" in message_utilisateur.lower():
-            reponse_fiscale = "Le taux standard de la TVA au Cameroun est de 19,25% (17,5% en principal + 10% de Centimes Additionnels Communaux)."
-        else:
-            reponse_fiscale = f"J'ai bien reçu votre message : '{message_utilisateur}'. Le moteur d'analyse fiscale est en cours de configuration pour cette requête spécifique."
-            
-    except Exception as e:
-        reponse_fiscale = "⚠️ Une erreur technique est survenue lors de la génération de la réponse fiscale."
-        print(f"❌ Erreur interne moteur RAG : {str(e)}")
-
-    # Formatage soigné pour WhatsApp (Gras sur le titre)
-    message_final = f"🤖 *ConsulFiscal Pro*\n\n{reponse_fiscale}"
-    
-    # Appel de la fonction d'envoi
-    await envoyer_message_whatsapp_meta(numero_expediteur, message_final)
+            print(f"❌ Autre erreur réseau : {repr(e)}")
 
 
 # --- 3. ROUTE DE VALIDATION GET (Handshake) ---
