@@ -38,13 +38,26 @@ async def envoyer_message_meta(numero_destinataire: str, texte: str):
 
 # 1. ÉTAPE DE VÉRIFICATION DU WEBHOOK (Exigée par Meta lors de la configuration)
 @app.get("/webhook/whatsapp")
-async def verifier_webhook(
-    hub_mode: str = Query(None, alias="hub.mode"),
-    hub_challenge: str = Query(None, alias="hub.challenge"),
-    hub_verify_token: str = Query(None, alias="hub.verify_token")
-):
-    if hub_mode == "subscribe" and hub_verify_token == VERIFY_TOKEN:
-        return Response(content=hub_challenge, media_type="text/plain")
+async def verifier_webhook(request: Request):
+    # On récupère directement les paramètres bruts de l'URL
+    params = request.query_params
+    
+    hub_mode = params.get("hub.mode")
+    hub_challenge = params.get("hub.challenge")
+    hub_verify_token = params.get("hub.verify_token")
+    
+    # Sécurité : On affiche dans tes logs Hugging Face ce que ton code reçoit VRAIMENT
+    print(f"🔍 Mode reçu: {hub_mode} | Token reçu: {hub_verify_token} | Challenge: {hub_challenge}")
+    
+    # REMPLACE "123456" par ton vrai token secret si tu l'as changé dans l'interface de Meta
+    # Ici, d'après tes logs, Meta envoie "123456"
+    VERIFY_TOKEN_ATTENDU = "123456" 
+    
+    if hub_mode == "subscribe" and hub_verify_token == VERIFY_TOKEN_ATTENDU:
+        print("✅ Jeton validé ! Envoi du challenge à Meta...")
+        return Response(content=str(hub_challenge), media_type="text/plain")
+    
+    print("❌ Échec de la validation : les jetons ne correspondent pas.")
     return Response(content="Échec de la vérification", status_code=403)
 
 # 2. RÉCEPTION DES MESSAGES DE META
