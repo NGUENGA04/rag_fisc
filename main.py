@@ -12,8 +12,7 @@ VERIFY_TOKEN = os.getenv("META_VERIFY_TOKEN")  # Un mot de passe arbitraire que 
 
 app = FastAPI(title="ConsuFiscal Meta API")
 
-async def envoyer_message_meta(numero_destinataire: str, texte: str):
-    """Envoie un message WhatsApp via l'API officielle de Meta."""
+async def envoyer_message_whatsapp_meta(numero_destinataire: str, texte: str):
     url = f"https://graph.facebook.com/v17.0/{PHONE_NUMBER_ID}/messages"
     
     headers = {
@@ -31,10 +30,10 @@ async def envoyer_message_meta(numero_destinataire: str, texte: str):
     async with httpx.AsyncClient() as client:
         try:
             response = await client.post(url, json=payload, headers=headers, timeout=10.0)
-            if response.status_code != 200:
-                print(f"❌ Erreur Meta API: {response.text}")
+            # CE PRINT VA TOUT TE DIRE DANS LES LOGS HUGGING FACE :
+            print(f"📊 RETOUR API META (Status: {response.status_code}) : {response.text}")
         except Exception as e:
-            print(f"❌ Erreur réseau Meta: {str(e)}")
+            print(f"❌ Erreur réseau critique lors de l'envoi : {str(e)}")
 
 # 1. ÉTAPE DE VÉRIFICATION DU WEBHOOK (Exigée par Meta lors de la configuration)
 @app.get("/webhook/whatsapp")
