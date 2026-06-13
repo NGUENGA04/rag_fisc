@@ -14,7 +14,10 @@ app = FastAPI(title="ConsulFiscal Pro - Meta API")
 
 # --- 1. FONCTION D'ENVOI VERS META ---
 async def envoyer_message_whatsapp_meta(numero_destinataire: str, texte: str):
-    """Envoie la réponse finale sur le WhatsApp de l'utilisateur."""
+    if not PHONE_NUMBER_ID or not META_ACCESS_TOKEN:
+        print("❌ Envoi annulé : PHONE_NUMBER_ID ou META_ACCESS_TOKEN vide.")
+        return
+
     url = f"https://graph.facebook.com/v17.0/{PHONE_NUMBER_ID}/messages"
     
     headers = {
@@ -29,13 +32,16 @@ async def envoyer_message_whatsapp_meta(numero_destinataire: str, texte: str):
         "text": {"body": texte}
     }
     
-    async with httpx.AsyncClient() as client:
+    print(f"📡 Envoi vers Meta... Destination: {numero_destinataire}")
+    
+    # trust_env=False force httpx à ignorer les proxys d'Hugging Face qui peuvent bloquer
+    async with httpx.AsyncClient(trust_env=False) as client:
         try:
-            response = await client.post(url, json=payload, headers=headers, timeout=10.0)
+            response = await client.post(url, json=payload, headers=headers, timeout=30.0)
             print(f"📊 RETOUR API META (Status: {response.status_code}) : {response.text}")
         except Exception as e:
-            print(f"❌ Erreur réseau lors de l'envoi : {str(e)}")
-
+            # ICI LE REPR(E) VA ENFIN TOUT T'AFFICHER NOIR SUR BLANC
+            print(f"❌ CAUSE EXACTE DE L'ÉCHEC RÉSEAU : {repr(e)}")
 
 # --- 2. FONCTION DU PIPELINE RAG (Définie avant son utilisation) ---
 async def executer_pipeline_rag(message_utilisateur: str, numero_expediteur: str):
