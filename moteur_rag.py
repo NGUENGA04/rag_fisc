@@ -42,7 +42,7 @@ class MoteurRAG:
         print("⏳ Initialisation du Moteur RAG...")
 
         # 2. Configuration du LLM
-        self.llm = Groq(model="llama-3.1-8b-instant", api_key=self.groq_api_key)
+        self.llm = Groq(model="llama-3.1-8b-instant", api_key=self.groq_api_key, temperature=0.0)
         Settings.llm = self.llm
 
         # 3. Configuration des Embeddings (BGE-Small) - Exécution locale
