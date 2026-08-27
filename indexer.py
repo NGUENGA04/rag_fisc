@@ -18,11 +18,9 @@ SOURCES_FISCALES = {
 }
 
 def executer_indexation_globale():
-    # 1. Configuration de l'embedding gratuit
     print("⏳ Initialisation du modèle d'embedding gratuit (BGE-Small)...")
     Settings.embed_model = HuggingFaceEmbedding(model_name="BAAI/bge-small-en-v1.5") 
 
-    # 2. Initialisation de Pinecone
     pinecone_api_key = os.getenv("PINECONE_API_KEY")
     pinecone_index_name = os.getenv("PINECONE_INDEX_NAME")
     
@@ -35,7 +33,6 @@ def executer_indexation_globale():
     vector_store = PineconeVectorStore(pinecone_index=pinecone_index)
     storage_context = StorageContext.from_defaults(vector_store=vector_store)
     
-    # 3. Configuration de LlamaParse
     llama_cloud_key = os.getenv("LLAMA_CLOUD_API_KEY")
     if not llama_cloud_key:
         print("❌ Erreur : LLAMA_CLOUD_API_KEY manquante.")

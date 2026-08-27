@@ -4,16 +4,14 @@ import httpx
 from fastapi import FastAPI, Request, Response, BackgroundTasks
 from dotenv import load_dotenv
 
-# Importation du moteur RAG configuré connecté à Pinecone
+
 from moteur_rag import moteur_rag
 
 load_dotenv()
 
-# Configuration des logs pour le terminal de soutenance
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
-# Récupération des variables d'environnement Meta Cloud API
 META_ACCESS_TOKEN = os.getenv("META_ACCESS_TOKEN")
 PHONE_NUMBER_ID = os.getenv("PHONE_NUMBER_ID")
 VERIFY_TOKEN = os.getenv("META_VERIFY_TOKEN", "123456")
@@ -68,7 +66,10 @@ async def traiter_et_repondre_rag(message_utilisateur: str, numero_expediteur: s
     if message_utilisateur:
         try:
             logger.info(f"🧠 Interrogation du moteur RAG pour : '{message_utilisateur}'")
-            reponse_fiscale = await moteur_rag.generer_reponse_async(message_utilisateur)
+            reponse_fiscale = await moteur_rag.generer_reponse_async(
+                message_utilisateur,
+                conversation_id=numero_expediteur
+            )
         except Exception as e:
             reponse_fiscale = "⚠️ Une erreur technique est survenue lors de l'analyse fiscale."
             logger.error(f"❌ Erreur lors du traitement de la requête RAG : {str(e)}")
@@ -76,7 +77,7 @@ async def traiter_et_repondre_rag(message_utilisateur: str, numero_expediteur: s
         reponse_fiscale = "Désolé, je n'ai pas pu lire le contenu de votre message."
 
     # Formatage final du message pour WhatsApp
-    message_final = f"🤖 *ConsulFiscal Pro*\n\n{reponse_fiscale}"
+    message_final = f"*ConsulFiscal Pro*\n\n{reponse_fiscale}"
     
     # Envoi direct via l'infrastructure Meta
     await envoyer_reponse_whatsapp_meta(numero_expediteur, message_final)
@@ -86,7 +87,7 @@ async def traiter_et_repondre_rag(message_utilisateur: str, numero_expediteur: s
 async def health_check(q: str = "Bonjour"):
     """Route de diagnostic pour valider l'intégrité opérationnelle du RAG."""
     try:
-        reponse = await moteur_rag.generer_reponse_async(q)
+        reponse = await moteur_rag.generer_reponse_async(q, conversation_id="health")
         status_meta = "Configuré ✅" if (PHONE_NUMBER_ID and META_ACCESS_TOKEN) else "Incomplet ❌"
         return {
             "status": "healthy",
